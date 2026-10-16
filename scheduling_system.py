@@ -347,9 +347,6 @@ def initialize_data():
             st.session_state.mapping_data = []
             st.session_state.data_initialized = True
 
-# Initialize data on startup
-initialize_data()
-
 # Function to generate the schedule
 def generate_schedule(start_date, end_date, classes=None, class_days=None, subjects=None, teachers=None, mapping=None):
     # Generate date sequence excluding Sundays
@@ -435,21 +432,23 @@ def generate_schedule(start_date, end_date, classes=None, class_days=None, subje
     
     return pd.DataFrame(schedule_data)
 
-# Initialize session state
-if 'schedule_data' not in st.session_state:
-    st.session_state.schedule_data = None
-if 'edited_data' not in st.session_state:
-    st.session_state.edited_data = None
-if 'classes_data' not in st.session_state:
-    st.session_state.classes_data = CLASSES
-if 'subjects_data' not in st.session_state:
-    st.session_state.subjects_data = SUBJECTS
-if 'teachers_data' not in st.session_state:
-    st.session_state.teachers_data = TEACHERS
-if 'class_days_data' not in st.session_state:
-    st.session_state.class_days_data = CLASS_DAYS
-if 'mapping_data' not in st.session_state:
-    st.session_state.mapping_data = TEACHER_SUBJECT_CLASS_MAPPING
+def _ensure_scheduling_session_state():
+    """Initialize scheduling-related session state keys (idempotent)."""
+    if 'schedule_data' not in st.session_state:
+        st.session_state.schedule_data = None
+    if 'edited_data' not in st.session_state:
+        st.session_state.edited_data = None
+    if 'classes_data' not in st.session_state:
+        st.session_state.classes_data = CLASSES
+    if 'subjects_data' not in st.session_state:
+        st.session_state.subjects_data = SUBJECTS
+    if 'teachers_data' not in st.session_state:
+        st.session_state.teachers_data = TEACHERS
+    if 'class_days_data' not in st.session_state:
+        st.session_state.class_days_data = CLASS_DAYS
+    if 'mapping_data' not in st.session_state:
+        st.session_state.mapping_data = TEACHER_SUBJECT_CLASS_MAPPING
+
 
 # Define UI
 # Add logo at the top
@@ -515,117 +514,82 @@ def display_logo():
         </div>
         """, unsafe_allow_html=True)
 
-# Main page header
-st.title("System Jadwal Pelajaran Widys")
+def render_scheduling_tab():
+    """Render the WIDYS scheduling UI (algorithm unchanged; callable from app tabs)."""
+    initialize_data()
+    _ensure_scheduling_session_state()
 
-st.divider()
+    # Main page header
+    st.title("System Jadwal Pelajaran Widys")
 
-# Sidebar
-with st.sidebar:
-    # Logo in sidebar
-    display_logo()
     st.divider()
-    
-    st.header("Controls")
-    
-    # Google Sheets Configuration
-    st.subheader("📊 Data Source")
-    if st.button("🔄 Reload from Google Sheets", help="Reload teacher, subject, and class data from Google Sheets"):
-        load_sheet_data.clear()  # Clear cache
-        if load_sheet_data(show_errors=True):
-            # Update session state
-            st.session_state.classes_data = CLASSES
-            st.session_state.subjects_data = SUBJECTS
-            st.session_state.teachers_data = TEACHERS
-            st.session_state.class_days_data = CLASS_DAYS
-            st.session_state.mapping_data = TEACHER_SUBJECT_CLASS_MAPPING
-            st.success(f"✅ Loaded {len(CLASSES)} classes, {len(SUBJECTS)} subjects, {len(TEACHERS)} teachers")
-            st.rerun()
-        else:
-            st.error("❌ Failed to load data. Using default values.")
-            st.info("💡 **Tip:** Make sure your Google Sheet is set to 'Anyone with the link can view'")
-    
-    # Display current data info
-    with st.expander("📋 Current Data Info"):
-        # Use session state (always available after initialization)
-        display_classes = st.session_state.get('classes_data', [])
-        display_subjects = st.session_state.get('subjects_data', [])
-        display_teachers = st.session_state.get('teachers_data', [])
-        display_class_days = st.session_state.get('class_days_data', {})
-        display_mapping = st.session_state.get('mapping_data', [])
+
+    # Sidebar
+    with st.sidebar:
+        # Logo in sidebar
+        display_logo()
+        st.divider()
         
-        if display_classes and display_subjects and display_teachers:
-            st.write(f"**Classes:** {len(display_classes)}")
-            st.write(f"**Subjects:** {len(display_subjects)}")
-            st.write(f"**Teachers:** {len(display_teachers)}")
-            st.write(f"**Mappings:** {len(display_mapping)}")
-            st.write(f"**Class Days Configured:** {len(display_class_days)}")
-            if display_class_days:
-                st.write("**Class Days Details:**")
-                for cls, days in display_class_days.items():
-                    st.write(f"  - {cls}: {days}")
-        else:
-            st.warning("⚠️ No data loaded. Using default values or please reload from Google Sheets.")
-            st.write(f"**Classes:** {display_classes}")
-            st.write(f"**Class Days:** {display_class_days}")
-    
-    st.divider()
-    
-    date_range = st.date_input(
-        "Select Date Range:",
-        value=(datetime.now().date(), datetime.now().date() + timedelta(days=6)),
-        min_value=datetime.now().date()
-    )
-    
-    # Handle date range input (Streamlit returns tuple for range selection)
-    if isinstance(date_range, tuple) and len(date_range) == 2:
-        start_date, end_date = date_range
-    elif isinstance(date_range, tuple) and len(date_range) == 1:
-        start_date = end_date = date_range[0]
-    else:
-        start_date = end_date = date_range
-    
-    if st.button("Generate Schedule"):
-        # Get data from session state
-        current_classes = st.session_state.get('classes_data', [])
-        current_class_days = st.session_state.get('class_days_data', {})
-        current_subjects = st.session_state.get('subjects_data', [])
-        current_teachers = st.session_state.get('teachers_data', [])
-        current_mapping = st.session_state.get('mapping_data', [])
+        st.header("Controls")
         
-        # Check if we have the necessary data
-        if not current_classes:
-            st.error("❌ No classes found! Please reload data from Google Sheets or check your data source.")
-        elif not current_class_days:
-            st.error("❌ No class days configured! Please check your Google Sheet data.")
-        else:
-            start_date_obj = datetime.combine(start_date, datetime.min.time())
-            end_date_obj = datetime.combine(end_date, datetime.min.time())
-            
-            schedule = generate_schedule(
-                start_date_obj, 
-                end_date_obj,
-                classes=current_classes,
-                class_days=current_class_days,
-                subjects=current_subjects,
-                teachers=current_teachers,
-                mapping=current_mapping
-            )
-            
-            if schedule.empty:
-                st.warning("⚠️ Generated schedule is empty. This might be because:")
-                st.write("- No valid date matches for the selected range")
-                st.write("- Class days don't match any dates in the range")
-                st.write(f"- Current classes: {current_classes}")
-                st.write(f"- Current class days: {current_class_days}")
-            else:
-                st.session_state.schedule_data = schedule
-                st.session_state.edited_data = schedule.copy()
-                st.success(f"✅ Schedule generated with {len(schedule)} entries!")
+        # Google Sheets Configuration
+        st.subheader("📊 Data Source")
+        if st.button("🔄 Reload from Google Sheets", help="Reload teacher, subject, and class data from Google Sheets"):
+            load_sheet_data.clear()  # Clear cache
+            if load_sheet_data(show_errors=True):
+                # Update session state
+                st.session_state.classes_data = CLASSES
+                st.session_state.subjects_data = SUBJECTS
+                st.session_state.teachers_data = TEACHERS
+                st.session_state.class_days_data = CLASS_DAYS
+                st.session_state.mapping_data = TEACHER_SUBJECT_CLASS_MAPPING
+                st.success(f"✅ Loaded {len(CLASSES)} classes, {len(SUBJECTS)} subjects, {len(TEACHERS)} teachers")
                 st.rerun()
-    
-    if st.button("Apply Edits to Future Schedule"):
-        if st.session_state.edited_data is not None and st.session_state.schedule_data is not None:
+            else:
+                st.error("❌ Failed to load data. Using default values.")
+                st.info("💡 **Tip:** Make sure your Google Sheet is set to 'Anyone with the link can view'")
+        
+        # Display current data info
+        with st.expander("📋 Current Data Info"):
+            # Use session state (always available after initialization)
+            display_classes = st.session_state.get('classes_data', [])
+            display_subjects = st.session_state.get('subjects_data', [])
+            display_teachers = st.session_state.get('teachers_data', [])
+            display_class_days = st.session_state.get('class_days_data', {})
+            display_mapping = st.session_state.get('mapping_data', [])
+            
+            if display_classes and display_subjects and display_teachers:
+                st.write(f"**Classes:** {len(display_classes)}")
+                st.write(f"**Subjects:** {len(display_subjects)}")
+                st.write(f"**Teachers:** {len(display_teachers)}")
+                st.write(f"**Mappings:** {len(display_mapping)}")
+                st.write(f"**Class Days Configured:** {len(display_class_days)}")
+                if display_class_days:
+                    st.write("**Class Days Details:**")
+                    for cls, days in display_class_days.items():
+                        st.write(f"  - {cls}: {days}")
+            else:
+                st.warning("⚠️ No data loaded. Using default values or please reload from Google Sheets.")
+                st.write(f"**Classes:** {display_classes}")
+                st.write(f"**Class Days:** {display_class_days}")
+        
+        st.divider()
+        
+        date_range = st.date_input(
+            "Select Date Range:",
+            value=(datetime.now().date(), datetime.now().date() + timedelta(days=6)),
+            min_value=datetime.now().date()
+        )
+        
+        # Handle date range input (Streamlit returns tuple for range selection)
+        if isinstance(date_range, tuple) and len(date_range) == 2:
+            start_date, end_date = date_range
+        elif isinstance(date_range, tuple) and len(date_range) == 1:
+            start_date = end_date = date_range[0]
+        else:
+            start_date = end_date = date_range
+        
+        if st.button("Generate Schedule"):
             # Get data from session state
             current_classes = st.session_state.get('classes_data', [])
             current_class_days = st.session_state.get('class_days_data', {})
@@ -633,84 +597,131 @@ with st.sidebar:
             current_teachers = st.session_state.get('teachers_data', [])
             current_mapping = st.session_state.get('mapping_data', [])
             
-            edited = st.session_state.edited_data.copy()
-            schedule = st.session_state.schedule_data.copy()
-            
-            # Apply manual edits
-            for idx, row in edited.iterrows():
-                mask = (schedule['Date'] == row['Date']) & (schedule['Class'] == row['Class'])
-                schedule.loc[mask, 'Subject'] = row['Subject']
-                schedule.loc[mask, 'Teacher'] = row['Teacher']
-            
-            # Adjust future schedules while keeping constraints
-            if len(edited) > 0:
-                max_edited_date = edited['Date'].max()
-                future_dates = schedule[schedule['Date'] > max_edited_date]
+            # Check if we have the necessary data
+            if not current_classes:
+                st.error("❌ No classes found! Please reload data from Google Sheets or check your data source.")
+            elif not current_class_days:
+                st.error("❌ No class days configured! Please check your Google Sheet data.")
+            else:
+                start_date_obj = datetime.combine(start_date, datetime.min.time())
+                end_date_obj = datetime.combine(end_date, datetime.min.time())
                 
-                if len(future_dates) > 0:
-                    future_start = pd.to_datetime(future_dates['Date'].min())
-                    end_date_obj = pd.to_datetime(schedule['Date'].max())
-                    
-                    future_schedule = generate_schedule(
-                        future_start, 
-                        end_date_obj,
-                        classes=current_classes,
-                        class_days=current_class_days,
-                        subjects=current_subjects,
-                        teachers=current_teachers,
-                        mapping=current_mapping
-                    )
-                    past_schedule = schedule[pd.to_datetime(schedule['Date']) < future_start]
-                    
-                    schedule = pd.concat([past_schedule, future_schedule], ignore_index=True)
-            
-            st.session_state.schedule_data = schedule
-            st.session_state.edited_data = schedule.copy()
-            st.rerun()
-    
-    # Download button
-    if st.session_state.schedule_data is not None:
-        # Create Excel file in memory
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            st.session_state.schedule_data.to_excel(writer, index=False, sheet_name='Schedule')
-        excel_data = output.getvalue()
+                schedule = generate_schedule(
+                    start_date_obj, 
+                    end_date_obj,
+                    classes=current_classes,
+                    class_days=current_class_days,
+                    subjects=current_subjects,
+                    teachers=current_teachers,
+                    mapping=current_mapping
+                )
+                
+                if schedule.empty:
+                    st.warning("⚠️ Generated schedule is empty. This might be because:")
+                    st.write("- No valid date matches for the selected range")
+                    st.write("- Class days don't match any dates in the range")
+                    st.write(f"- Current classes: {current_classes}")
+                    st.write(f"- Current class days: {current_class_days}")
+                else:
+                    st.session_state.schedule_data = schedule
+                    st.session_state.edited_data = schedule.copy()
+                    st.success(f"✅ Schedule generated with {len(schedule)} entries!")
+                    st.rerun()
         
-        st.download_button(
-            label="Download Schedule as Excel",
-            data=excel_data,
-            file_name=f"Schedule_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        if st.button("Apply Edits to Future Schedule"):
+            if st.session_state.edited_data is not None and st.session_state.schedule_data is not None:
+                # Get data from session state
+                current_classes = st.session_state.get('classes_data', [])
+                current_class_days = st.session_state.get('class_days_data', {})
+                current_subjects = st.session_state.get('subjects_data', [])
+                current_teachers = st.session_state.get('teachers_data', [])
+                current_mapping = st.session_state.get('mapping_data', [])
+                
+                edited = st.session_state.edited_data.copy()
+                schedule = st.session_state.schedule_data.copy()
+                
+                # Apply manual edits
+                for idx, row in edited.iterrows():
+                    mask = (schedule['Date'] == row['Date']) & (schedule['Class'] == row['Class'])
+                    schedule.loc[mask, 'Subject'] = row['Subject']
+                    schedule.loc[mask, 'Teacher'] = row['Teacher']
+                
+                # Adjust future schedules while keeping constraints
+                if len(edited) > 0:
+                    max_edited_date = edited['Date'].max()
+                    future_dates = schedule[schedule['Date'] > max_edited_date]
+                    
+                    if len(future_dates) > 0:
+                        future_start = pd.to_datetime(future_dates['Date'].min())
+                        end_date_obj = pd.to_datetime(schedule['Date'].max())
+                        
+                        future_schedule = generate_schedule(
+                            future_start, 
+                            end_date_obj,
+                            classes=current_classes,
+                            class_days=current_class_days,
+                            subjects=current_subjects,
+                            teachers=current_teachers,
+                            mapping=current_mapping
+                        )
+                        past_schedule = schedule[pd.to_datetime(schedule['Date']) < future_start]
+                        
+                        schedule = pd.concat([past_schedule, future_schedule], ignore_index=True)
+                
+                st.session_state.schedule_data = schedule
+                st.session_state.edited_data = schedule.copy()
+                st.rerun()
+        
+        # Download button
+        if st.session_state.schedule_data is not None:
+            # Create Excel file in memory
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                st.session_state.schedule_data.to_excel(writer, index=False, sheet_name='Schedule')
+            excel_data = output.getvalue()
+            
+            st.download_button(
+                label="Download Schedule as Excel",
+                data=excel_data,
+                file_name=f"Schedule_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
+    # Main panel
+    if st.session_state.schedule_data is not None:
+        st.header("Generated Schedule")
+        st.dataframe(st.session_state.schedule_data, use_container_width=True, hide_index=True)
+        
+        st.header("Edit Schedule")
+        # Get current data from session state
+        editor_subjects = st.session_state.get('subjects_data', [])
+        editor_teachers = st.session_state.get('teachers_data', [])
+        
+        # Create editable dataframe (Subject and Teacher columns)
+        edited_df = st.data_editor(
+            st.session_state.edited_data,
+            column_config={
+                "Date": st.column_config.TextColumn("Date", disabled=True),
+                "Day": st.column_config.TextColumn("Day", disabled=True),
+                "Class": st.column_config.TextColumn("Class", disabled=True),
+                "Subject": st.column_config.SelectboxColumn("Subject", options=editor_subjects),
+                "Teacher": st.column_config.SelectboxColumn("Teacher", options=editor_teachers)
+            },
+            use_container_width=True,
+            hide_index=True,
+            num_rows="dynamic",
+            key="schedule_editor"
         )
+        
+        # Update edited data in session state
+        st.session_state.edited_data = edited_df
+    else:
+        st.info("Please select a date range and click 'Generate Schedule' to begin.")
 
-# Main panel
-if st.session_state.schedule_data is not None:
-    st.header("Generated Schedule")
-    st.dataframe(st.session_state.schedule_data, use_container_width=True, hide_index=True)
-    
-    st.header("Edit Schedule")
-    # Get current data from session state
-    editor_subjects = st.session_state.get('subjects_data', [])
-    editor_teachers = st.session_state.get('teachers_data', [])
-    
-    # Create editable dataframe (Subject and Teacher columns)
-    edited_df = st.data_editor(
-        st.session_state.edited_data,
-        column_config={
-            "Date": st.column_config.TextColumn("Date", disabled=True),
-            "Day": st.column_config.TextColumn("Day", disabled=True),
-            "Class": st.column_config.TextColumn("Class", disabled=True),
-            "Subject": st.column_config.SelectboxColumn("Subject", options=editor_subjects),
-            "Teacher": st.column_config.SelectboxColumn("Teacher", options=editor_teachers)
-        },
-        use_container_width=True,
-        hide_index=True,
-        num_rows="dynamic",
-        key="schedule_editor"
+
+if __name__ == "__main__":
+    st.set_page_config(
+        page_title="System Jadwal Pelajaran Widys",
+        layout="wide",
     )
-    
-    # Update edited data in session state
-    st.session_state.edited_data = edited_df
-else:
-    st.info("Please select a date range and click 'Generate Schedule' to begin.")
-
+    render_scheduling_tab()
