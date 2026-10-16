@@ -1,0 +1,7 @@
+student_name,class_name,amount_due,amount_paid,notes
+Andi Pratama,A,1500000,500000,Installment 1 of 3
+Bella Putri,A,1500000,1500000,Paid in full
+Citra Dewi,B,1800000,900000,Installment 1 of 2
+Dimas Nugro,B,1800000,0,Not started
+Eka Santoso,C,1600000,1600000,Paid in full
+Fajar Hadi,C,1600000,800000,Half paid
