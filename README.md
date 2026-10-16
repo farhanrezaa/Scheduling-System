@@ -59,10 +59,10 @@ docker run -p 8501:8501 education-mgmt-mvp
 ## Project layout
 
 ```
-app.py                 # Streamlit entry (3 tabs)
-scheduling_system.py   # WIDYS scheduler (wrapped for the Scheduling tab)
-salary_tracker.py      # Teacher salary tab
-payment_tracker.py     # Student payment tab
+app.py                 # Streamlit entry (3 views via radio; scheduling sidebar gated)
+scheduling_system.py   # WIDYS scheduler (wrapped for the Scheduling view)
+salary_tracker.py      # Teacher salary view
+payment_tracker.py     # Student payment view
 data_store.py          # CSV helpers
 data/                  # Seed / persisted CSV data
 requirements.txt

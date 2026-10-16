@@ -451,15 +451,19 @@ def _ensure_scheduling_session_state():
 
 
 # Define UI
-# Add logo at the top
-def display_logo():
-    """Display company logo if available."""
+def display_logo(width: int | None = None):
+    """Display WIDYS logo if available.
+
+    Args:
+        width: Pixel width for header placement. If None, fill the container
+            (legacy sidebar-style sizing when used alone).
+    """
     import os
     from pathlib import Path
-    
+
     # Get the script directory
     script_dir = Path(__file__).parent if '__file__' in globals() else Path.cwd()
-    
+
     # Try to load logo from common locations (prioritize JPEG)
     logo_paths = [
         script_dir / "logo.jpg",
@@ -481,36 +485,42 @@ def display_logo():
         "widys_logo.jpeg",
         "widys_logo.png",
     ]
-    
+
     logo_found = False
     for logo_path in logo_paths:
         # Handle both Path objects and strings
         path_str = str(logo_path) if isinstance(logo_path, Path) else logo_path
-        
+
         if os.path.exists(path_str):
             try:
                 # Try with PIL Image first (handles format mismatches better)
                 try:
                     from PIL import Image
                     img = Image.open(path_str)
-                    st.image(img, use_container_width=True)
+                    if width is not None:
+                        st.image(img, width=width)
+                    else:
+                        st.image(img, use_container_width=True)
                     logo_found = True
                     break
                 except Exception:
                     # Fallback to direct path
-                    st.image(path_str, use_container_width=True)
+                    if width is not None:
+                        st.image(path_str, width=width)
+                    else:
+                        st.image(path_str, use_container_width=True)
                     logo_found = True
                     break
             except Exception:
                 continue
-    
+
     if not logo_found:
         # Display text logo if image not found
         st.markdown("""
-        <div style="text-align: center; padding: 10px;">
-            <h2 style="color: #FF0000; margin: 0;">WIDYS</h2>
-            <p style="color: #FF0000; margin: 5px 0; font-weight: bold;">BIMBINGAN BELAJAR</p>
-            <p style="color: #FF0000; margin: 5px 0; font-style: italic;">#EdukasiDenganHati</p>
+        <div style="padding: 4px 0;">
+            <div style="color: #FF0000; font-weight: 700; font-size: 1.1rem; line-height: 1.2;">WIDYS</div>
+            <div style="color: #FF0000; font-weight: 700; font-size: 0.75rem;">BIMBINGAN BELAJAR</div>
+            <div style="color: #FF0000; font-style: italic; font-size: 0.7rem;">#EdukasiDenganHati</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -524,12 +534,8 @@ def render_scheduling_tab():
 
     st.divider()
 
-    # Sidebar
+    # Sidebar controls (only created when this view is rendered)
     with st.sidebar:
-        # Logo in sidebar
-        display_logo()
-        st.divider()
-        
         st.header("Controls")
         
         # Google Sheets Configuration
