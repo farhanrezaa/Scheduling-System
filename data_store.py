@@ -1,4 +1,4 @@
-"""CSV persistence helpers for MVP salary and payment trackers."""
+"""CSV persistence helpers for MVP salary, payment, and session confirmations."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 
 TEACHER_SALARY_COLUMNS = [
     "teacher_name",
-    "sessions_completed",
     "rate_per_session",
     "status",
     "notes",
@@ -24,6 +23,21 @@ STUDENT_PAYMENT_COLUMNS = [
     "amount_paid",
     "notes",
 ]
+
+# Flat log shaped for a later Google Sheets tab (one row per confirmed session)
+CONFIRMED_SESSION_COLUMNS = [
+    "session_key",
+    "date",
+    "day",
+    "class_name",
+    "subject",
+    "teacher_name",
+    "confirmed_at",
+]
+
+CONFIRMED_SESSIONS_FILE = "confirmed_sessions.csv"
+TEACHER_SALARIES_FILE = "teacher_salaries.csv"
+STUDENT_PAYMENTS_FILE = "student_payments.csv"
 
 
 def ensure_data_dir() -> Path:
@@ -43,7 +57,21 @@ def load_csv(filename: str, columns: list[str]) -> pd.DataFrame:
     df = pd.read_csv(path)
     for col in columns:
         if col not in df.columns:
-            df[col] = "" if col in ("teacher_name", "student_name", "class_name", "status", "notes") else 0
+            if col in (
+                "teacher_name",
+                "student_name",
+                "class_name",
+                "status",
+                "notes",
+                "session_key",
+                "date",
+                "day",
+                "subject",
+                "confirmed_at",
+            ):
+                df[col] = ""
+            else:
+                df[col] = 0
     return df[columns].copy()
 
 
