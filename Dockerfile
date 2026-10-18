@@ -12,7 +12,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code and seed data
-COPY app.py data_store.py scheduling_system.py salary_tracker.py payment_tracker.py ./
+COPY app.py data_store.py session_confirmations.py scheduling_system.py salary_tracker.py payment_tracker.py ./
 COPY data/ ./data/
 COPY logo.png logo.jpeg ./
 

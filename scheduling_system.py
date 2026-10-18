@@ -721,8 +721,95 @@ def render_scheduling_tab():
         
         # Update edited data in session state
         st.session_state.edited_data = edited_df
+
+        _render_session_confirmations(edited_df)
     else:
         st.info("Please select a date range and click 'Generate Schedule' to begin.")
+
+
+def _render_session_confirmations(schedule_df: pd.DataFrame):
+    """Confirm taught sessions → durable log used by Teacher Salary Tracker."""
+    import hashlib
+
+    from session_confirmations import (
+        confirm_session,
+        confirmed_key_set,
+        load_confirmed_sessions,
+        make_session_key,
+        unconfirm_session,
+    )
+
+    st.header("Confirm sessions")
+    st.caption(
+        "Confirm when a teacher actually taught. Each confirm records **1 session** "
+        "(date · class · subject · teacher) for salary. Confirming the same row twice "
+        "does not double-count. Undo removes that log entry."
+    )
+
+    if schedule_df is None or schedule_df.empty:
+        st.info("No schedule rows to confirm.")
+        return
+
+    confirmed = confirmed_key_set()
+    # Header
+    h = st.columns([1.4, 1.0, 1.0, 1.4, 1.6, 1.4])
+    h[0].markdown("**Date**")
+    h[1].markdown("**Day**")
+    h[2].markdown("**Class**")
+    h[3].markdown("**Subject**")
+    h[4].markdown("**Teacher**")
+    h[5].markdown("**Action**")
+
+    for idx, row in schedule_df.iterrows():
+        date = str(row.get("Date", "")).strip()
+        day = str(row.get("Day", "")).strip()
+        class_name = str(row.get("Class", "")).strip()
+        subject = str(row.get("Subject", "")).strip()
+        teacher = str(row.get("Teacher", "")).strip()
+        if not all([date, class_name, subject, teacher]):
+            continue
+
+        key = make_session_key(date, class_name, subject, teacher)
+        widget_id = hashlib.md5(f"{idx}|{key}".encode()).hexdigest()[:12]
+        c = st.columns([1.4, 1.0, 1.0, 1.4, 1.6, 1.4])
+        c[0].write(date)
+        c[1].write(day)
+        c[2].write(class_name)
+        c[3].write(subject)
+        c[4].write(teacher)
+
+        if key in confirmed:
+            a1, a2 = c[5].columns(2)
+            a1.button("✓ Done", disabled=True, key=f"conf_done_{widget_id}")
+            if a2.button("Undo", key=f"conf_undo_{widget_id}"):
+                unconfirm_session(key)
+                st.toast(f"Unconfirmed session for {teacher}")
+                st.rerun()
+        else:
+            if c[5].button("Confirm", type="primary", key=f"conf_go_{widget_id}"):
+                created, _ = confirm_session(
+                    date=date,
+                    day=day,
+                    class_name=class_name,
+                    subject=subject,
+                    teacher_name=teacher,
+                )
+                if created:
+                    st.toast(f"Confirmed 1 session for {teacher}")
+                else:
+                    st.toast("Already confirmed (no double-count)")
+                st.rerun()
+
+    log = load_confirmed_sessions()
+    with st.expander(f"Confirmed sessions log ({len(log)} rows)"):
+        if log.empty:
+            st.caption("No confirmations yet. Stored in `data/confirmed_sessions.csv`.")
+        else:
+            st.dataframe(log, use_container_width=True, hide_index=True)
+            st.caption(
+                "To remove a confirmation, use **Undo** above or delete the row "
+                "from the CSV / a future Sheets tab. Path: `data/confirmed_sessions.csv`."
+            )
 
 
 if __name__ == "__main__":
